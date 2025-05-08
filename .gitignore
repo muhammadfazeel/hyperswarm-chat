@@ -1,0 +1,39 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# Electron
+dist/
+build/
+*.asar
+
+# Environment files
+.env
+.env.local
+
+# Mac system files
+.DS_Store
+
+# Logs
+logs
+*.log
+logs/*.log
+
+# OS and Editor files
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# MongoDB database dumps or local DB files
+dump/
+*.lock
+mongod.lock
+
+# Cache
+.cache/
+.cache-loader/

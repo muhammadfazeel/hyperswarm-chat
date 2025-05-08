@@ -1,0 +1,17 @@
+{
+  "name": "hyperswarm-electron",
+  "version": "1.0.0",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "electron": "^36.2.0",
+    "hyperswarm": "^4.11.5",
+    "mongoose": "^8.14.1"
+  }
+}

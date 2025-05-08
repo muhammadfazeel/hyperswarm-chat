@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>P2P Chat</title>
+    <style>
+        body {
+            font-family: Arial;
+            padding: 20px;
+        }
+
+        #chat {
+            border: 1px solid #ccc;
+            height: 300px;
+            overflow-y: scroll;
+            padding: 10px;
+        }
+
+        #input,
+        #start,
+        #session,
+        #users {
+            margin-top: 10px;
+        }
+
+        #session {
+            display: none;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: left;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>🟢 Hyperswarm Chat</h2>
+    <div id="start">
+        <input id="nickname" placeholder="Your username" />
+        <input id="topic" placeholder="Chat room name" />
+        <button onclick="startChat()">Start</button>
+    </div>
+
+    <div id="session">
+        <span id="sessionStatus">🟢 Connected as <strong id="activeUser"></strong></span>
+        <button onclick="disconnect()">Disconnect</button>
+    </div>
+
+    <div id="chat"></div>
+    <div id="input">
+        <input id="message" placeholder="Type a message..." />
+        <button onclick="sendMessage()">Send</button>
+    </div>
+
+    <div id="users">
+        <h3>Users</h3>
+        <table id="usersTable">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <script>
+        function startChat() {
+            const nickname = document.getElementById('nickname').value;
+            const topic = document.getElementById('topic').value;
+            window.nickname = nickname;
+            window.topic = topic;
+            window.electronAPI.startChat({ username: nickname, topicName: topic });
+            document.getElementById('start').style.display = 'none';
+            document.getElementById('session').style.display = 'block';
+            document.getElementById('activeUser').innerText = nickname;
+        }
+
+        function sendMessage() {
+            const text = document.getElementById('message').value;
+            const id = Date.now() + Math.random().toString(36).slice(2);
+            const payload = JSON.stringify({ id, name: window.nickname, text, topic: window.topic });
+            window.electronAPI.sendMessage(payload);
+            appendMessage(`🟢 You: ${text}`);
+            document.getElementById('message').value = '';
+        }
+
+        function appendMessage(msg) {
+            const chat = document.getElementById('chat');
+            chat.innerHTML += `<div>${msg}</div>`;
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+        function disconnect() {
+            window.electronAPI.disconnect();
+        }
+
+        window.electronAPI.onMessage((raw) => {
+            try {
+                const msg = JSON.parse(raw);
+                appendMessage(`🟡 ${msg.name}: ${msg.text}`);
+            } catch (err) {
+                appendMessage(`❗ Error: ${raw}`);
+            }
+        });
+
+        window.electronAPI.onHistory((history) => {
+            history.forEach((msg) => {
+                appendMessage(`🕘 ${msg.sender.username}: ${msg.text}`);
+            });
+        });
+
+        window.electronAPI.onUsers((users) => {
+            const tbody = document.querySelector('#usersTable tbody');
+            tbody.innerHTML = '';
+            users.forEach(user => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td>${user.username}</td><td>${user.online ? '🟢 Online' : '⚪ Offline'}</td>`;
+                tbody.appendChild(tr);
+            });
+        });
+
+        window.electronAPI.onDisconnected(() => {
+            document.getElementById('start').style.display = 'block';
+            document.getElementById('session').style.display = 'none';
+        });
+    </script>
+</body>
+
+</html>
