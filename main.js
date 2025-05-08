@@ -29,6 +29,11 @@ app.on("window-all-closed", () => {
 let currentUser = null;
 let currentTopicDoc = null;
 
+ipcMain.on("get-rooms", async (event) => {
+  const topics = await Topic.find({}, "name").lean();
+  event.sender.send("room-list", topics);
+});
+
 ipcMain.on("start", async (event, { username, topicName }) => {
   currentUser = await User.findOne({ username });
   if (!currentUser) currentUser = await User.create({ username });
@@ -56,6 +61,11 @@ ipcMain.on("start", async (event, { username, topicName }) => {
           return;
         }
 
+        if (msg.type === "room-list") {
+          win.webContents.send("room-list", msg.topics);
+          return;
+        }
+
         if (seenMessages.has(msg.id)) return;
         seenMessages.add(msg.id);
 
@@ -79,15 +89,20 @@ ipcMain.on("start", async (event, { username, topicName }) => {
     .lean();
 
   const users = await User.find({}, "username online").lean();
+  const allTopics = await Topic.find({}, "name").lean();
 
   win.webContents.send("history", history);
   win.webContents.send("users", users);
+  win.webContents.send("room-list", allTopics);
 
-  const statusPayload = JSON.stringify({
-    type: "user-status",
-    users,
-  });
+  const statusPayload = JSON.stringify({ type: "user-status", users });
   for (const peer of peers) peer.write(statusPayload);
+
+  const topicBroadcast = JSON.stringify({
+    type: "room-list",
+    topics: allTopics,
+  });
+  for (const peer of peers) peer.write(topicBroadcast);
 
   event.returnValue = { success: true };
 });
@@ -122,13 +137,19 @@ ipcMain.on("disconnect", async () => {
       await currentUser.save();
     }
     const users = await User.find({}, "username online").lean();
-    const statusPayload = JSON.stringify({
-      type: "user-status",
-      users,
-    });
+    const allTopics = await Topic.find({}, "name").lean();
+
+    const statusPayload = JSON.stringify({ type: "user-status", users });
     for (const peer of peers) peer.write(statusPayload);
 
+    const topicBroadcast = JSON.stringify({
+      type: "room-list",
+      topics: allTopics,
+    });
+    for (const peer of peers) peer.write(topicBroadcast);
+
     win.webContents.send("users", users);
+    win.webContents.send("room-list", allTopics);
     win.webContents.send("disconnected");
 
     currentUser = null;

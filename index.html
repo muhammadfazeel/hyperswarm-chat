@@ -1,31 +1,71 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>P2P Chat</title>
     <style>
         body {
-            font-family: Arial;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
             padding: 20px;
+            background: #f4f4f4;
+            color: #333;
+        }
+
+        h2 {
+            margin-top: 0;
+            color: #27ae60;
+        }
+
+        .description {
+            font-size: 0.95em;
+            color: #555;
+            margin-bottom: 20px;
+        }
+
+        #container {
+            max-width: 900px;
+            margin: auto;
+            background: #fff;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
         }
 
         #chat {
             border: 1px solid #ccc;
+            border-radius: 5px;
             height: 300px;
             overflow-y: scroll;
             padding: 10px;
+            background: #fafafa;
         }
 
-        #input,
-        #start,
-        #session,
-        #users {
-            margin-top: 10px;
+        input,
+        select,
+        button {
+            padding: 10px;
+            margin: 5px 0;
+            font-size: 1em;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        button {
+            background-color: #27ae60;
+            color: white;
+            cursor: pointer;
+            border: none;
+        }
+
+        button:hover {
+            background-color: #219150;
         }
 
         #session {
-            display: none;
+            margin-top: 10px;
         }
 
         table {
@@ -40,55 +80,92 @@
             padding: 8px;
             text-align: left;
         }
+
+        @media (max-width: 600px) {
+
+            input,
+            select,
+            button {
+                width: 100%;
+            }
+        }
     </style>
 </head>
 
 <body>
-    <h2>🟢 Hyperswarm Chat</h2>
-    <div id="start">
-        <input id="nickname" placeholder="Your username" />
-        <input id="topic" placeholder="Chat room name" />
-        <button onclick="startChat()">Start</button>
-    </div>
+    <div id="container">
+        <h2>🟢 Hyperswarm Chat</h2>
+        <p class="description">
+            A secure, decentralized peer-to-peer chat app built using Electron, Hyperswarm, and MongoDB. Create or join
+            chat rooms and talk in real-time without a central server.
+        </p>
 
-    <div id="session">
-        <span id="sessionStatus">🟢 Connected as <strong id="activeUser"></strong></span>
-        <button onclick="disconnect()">Disconnect</button>
-    </div>
+        <div id="start">
+            <input id="nickname" placeholder="Your username" />
+            <select id="roomDropdown">
+                <option disabled selected>Select a room</option>
+            </select>
+            <input id="customTopic" placeholder="Or enter a new room" />
+            <button id="startBtn">Start</button>
+        </div>
 
-    <div id="chat"></div>
-    <div id="input">
-        <input id="message" placeholder="Type a message..." />
-        <button onclick="sendMessage()">Send</button>
-    </div>
+        <div id="session" style="display:none">
+            <span id="sessionStatus">🟢 Connected as <strong id="activeUser"></strong></span>
+            <button id="disconnectBtn">Disconnect</button>
+        </div>
 
-    <div id="users">
-        <h3>Users</h3>
-        <table id="usersTable">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
+        <div id="chat"></div>
+
+        <div id="input">
+            <input id="message" placeholder="Type a message..." disabled />
+            <button onclick="sendMessage()" disabled>Send</button>
+        </div>
+
+        <div id="users">
+            <h3>Users</h3>
+            <table id="usersTable">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
     </div>
 
     <script>
+        document.getElementById('startBtn').addEventListener('click', startChat);
+        document.getElementById('disconnectBtn').addEventListener('click', disconnect);
+
         function startChat() {
-            const nickname = document.getElementById('nickname').value;
-            const topic = document.getElementById('topic').value;
+            const nickname = document.getElementById('nickname').value.trim();
+            const selectedTopic = document.getElementById('roomDropdown').value;
+            const customTopic = document.getElementById('customTopic').value.trim();
+            const topic = customTopic !== '' ? customTopic : selectedTopic;
+
+            if (!nickname || !topic) {
+                alert('Please enter a nickname and select or create a room.');
+                return;
+            }
+
             window.nickname = nickname;
             window.topic = topic;
             window.electronAPI.startChat({ username: nickname, topicName: topic });
+
             document.getElementById('start').style.display = 'none';
             document.getElementById('session').style.display = 'block';
             document.getElementById('activeUser').innerText = nickname;
+            document.getElementById('message').disabled = false;
+            document.querySelector('#input button').disabled = false;
         }
 
         function sendMessage() {
-            const text = document.getElementById('message').value;
+            if (!window.nickname || !window.topic) return;
+            const text = document.getElementById('message').value.trim();
+            if (!text) return;
+
             const id = Date.now() + Math.random().toString(36).slice(2);
             const payload = JSON.stringify({ id, name: window.nickname, text, topic: window.topic });
             window.electronAPI.sendMessage(payload);
@@ -104,6 +181,10 @@
 
         function disconnect() {
             window.electronAPI.disconnect();
+            window.nickname = null;
+            window.topic = null;
+            document.getElementById('message').disabled = true;
+            document.querySelector('#input button').disabled = true;
         }
 
         window.electronAPI.onMessage((raw) => {
@@ -131,9 +212,29 @@
             });
         });
 
+        window.electronAPI.onRoomList((topics) => {
+            const list = document.getElementById('roomDropdown');
+            list.innerHTML = '<option disabled selected>Select a room</option>';
+            topics.forEach(t => {
+                const option = document.createElement('option');
+                option.value = t.name;
+                option.textContent = t.name;
+                list.appendChild(option);
+            });
+        });
+
         window.electronAPI.onDisconnected(() => {
             document.getElementById('start').style.display = 'block';
             document.getElementById('session').style.display = 'none';
+            document.getElementById('chat').innerHTML = '';
+            document.getElementById('roomDropdown').innerHTML = '';
+            document.getElementById('message').disabled = true;
+            document.querySelector('#input button').disabled = true;
+            window.electronAPI.getRooms();
+        });
+
+        window.addEventListener("DOMContentLoaded", () => {
+            window.electronAPI.getRooms();
         });
     </script>
 </body>
